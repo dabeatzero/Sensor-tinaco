@@ -1,5 +1,8 @@
+#include <Wire.h>
+#include <LCD.h>
+#include <LiquidCrystal_I2C.h>
 
-String strVersion = "1.0";
+String strVersion = "2.0";
 
 int pinLedVacio        = 0;
 int pinLedFondo        = 1;
@@ -29,6 +32,16 @@ int estadoActual;
 
 int pinBuzzer         = 6;
 
+//GND
+//VCC
+//SDA - A4
+//SCL - A5
+
+LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7);   //DIR, E, RW, RS, D4, D5, D6, D7
+// 2,1,0,4,5,6,7 indican a qué puertos de convertidor a I2C se conectan los pines del lcd. Esto es P0,P1,P2,P3,P4,P5,P6,P7
+
+byte barraVer[8] = {B10101,B10101,B10101,B10101,B10101,B10101,B10101,B10101};
+
 void setup() {
   // put your setup code here, to run once:
   pinMode(pinLedVacio, OUTPUT);
@@ -54,8 +67,16 @@ void setup() {
   pinMode(pinBuzzer, OUTPUT);
 
   estadoActual = estadoValidando;
-}
 
+  lcd.setBacklightPin(3, POSITIVE);
+  lcd.setBacklight(HIGH);
+  lcd.begin(16,2);
+  lcd.clear();
+
+  lcd.createChar(1,barraVer);
+  
+  showInit();
+}
 
 int validateSensorsStatus() {
   int tempEdoFondo        = digitalRead(pinSensorFondo);
@@ -173,12 +194,106 @@ void alarmErrorFunction(){
   delay(2000);
 }
 
+void showLevelLine(int estado){
+  int totalLines = 0;
+  if (estado == estadoVacio) {
+    
+  }
+  else if (estado == estadoFondo) {
+    totalLines = 1;
+  }
+  else if (estado == estadoUnCuarto) {
+    totalLines = 4;
+  }
+  else if (estado == estadoMitad) {
+    totalLines = 8;
+  }
+  else if (estado == estadoTresCuartos) {
+    totalLines = 12;
+  }
+  else if (estado == estadoLleno) {
+    totalLines = 16;
+  }
+  else if (estado == estadoErrorFunction) {
+    
+  }
+
+  if(estado == estadoVacio){
+    lcd.setCursor(0,1);
+    lcd.print("[            ]");
+  }else if(estado == estadoErrorFunction){
+    lcd.setCursor(0,1);
+    lcd.print("      XXX       ");
+  }else{
+    for(int i=0; i<totalLines; i++){
+      lcd.setCursor(i,1);
+      lcd.write(byte(1));
+    }
+  }
+}
+
+void displayLevelStatus(int estado){
+  String strMsgLine1 = "";
+  String strMsgLine2 = "";
+  
+  if (estado == estadoVacio) {
+    strMsgLine1 = "Nivel: Vacio";
+  }
+  else if (estado == estadoFondo) {
+    strMsgLine1 = "Nivel: Fondo";
+  }
+  else if (estado == estadoUnCuarto) {
+    strMsgLine1 = "Nivel: Un cuarto";
+  }
+  else if (estado == estadoMitad) {
+    strMsgLine1 = "Nivel: Mitad";
+  }
+  else if (estado == estadoTresCuartos) {
+    strMsgLine1 = "Nivel: Tres cuartos";
+  }
+  else if (estado == estadoLleno) {
+    strMsgLine1 = "Nivel: Lleno";
+  }
+  else if (estado == estadoErrorFunction) {
+    strMsgLine1 = "Error en sistema";
+  }
+
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print(strMsgLine1);
+  //lcd.setCursor(0,1);
+  //lcd.print(strMsgLine2);
+  showLevelLine(estado);
+}
+
+void showInit(){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Starting system");
+
+  for(int i=0; i<16; i++){
+    lcd.setCursor(i,1);
+    lcd.write(0x2E);
+    delay(200);
+  }
+
+  delay(1500);
+
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Ready to start");
+  lcd.setCursor(0,1);
+  lcd.print("System ver " + strVersion);
+  delay(3000);
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
 
   estadoActual = validateSensorsStatus();
 
   setLedsStatus(estadoActual);
+  displayLevelStatus(estadoActual);
 
   if(estadoActual == estadoLleno){   //estadoLleno
     alarmFull();
@@ -188,4 +303,4 @@ void loop() {
   }
 
   delay(500);
-}
+} 
