@@ -2,7 +2,7 @@
 #include <LCD.h>
 #include <LiquidCrystal_I2C.h>
 
-String strVersion = "2.0";
+String strVersion = "2.1";
 
 int pinLedVacio        = 0;
 int pinLedFondo        = 1;
@@ -29,6 +29,8 @@ int estadoValidando   = 9;
 int estadoErrorFunction = -1;
 
 int estadoActual;
+
+int estadoAnterior; 
 
 int pinBuzzer         = 6;
 
@@ -67,6 +69,7 @@ void setup() {
   pinMode(pinBuzzer, OUTPUT);
 
   estadoActual = estadoValidando;
+  estadoAnterior = estadoValidando;
 
   lcd.setBacklightPin(3, POSITIVE);
   lcd.setBacklight(HIGH);
@@ -74,7 +77,8 @@ void setup() {
   lcd.clear();
 
   lcd.createChar(1,barraVer);
-  
+
+  alarmInitSystem();
   showInit();
 }
 
@@ -194,6 +198,32 @@ void alarmErrorFunction(){
   delay(2000);
 }
 
+void alarmInitSystem(){
+  for(int i = 0; i < 3; i++){
+    digitalWrite(pinBuzzer, HIGH);
+    delay(400);
+    digitalWrite(pinBuzzer, LOW);
+    delay(50);
+  }
+  
+}
+
+void alarmChangedLevel(){
+  digitalWrite(pinBuzzer, HIGH);
+  delay(800);
+  digitalWrite(pinBuzzer, LOW);
+  delay(50);
+
+  
+  for(int i = 0; i < 2; i++){
+    digitalWrite(pinBuzzer, HIGH);
+    delay(250);
+    digitalWrite(pinBuzzer, LOW);
+    delay(50);
+  }
+  
+}
+
 void showLevelLine(int estado){
   int totalLines = 0;
   if (estado == estadoVacio) {
@@ -274,17 +304,17 @@ void showInit(){
   for(int i=0; i<16; i++){
     lcd.setCursor(i,1);
     lcd.write(0x2E);
-    delay(200);
+    delay(150);
   }
 
-  delay(1500);
+  delay(500);
 
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Ready to start");
   lcd.setCursor(0,1);
   lcd.print("System ver " + strVersion);
-  delay(3000);
+  delay(1500);
 }
 
 void loop() {
@@ -292,8 +322,19 @@ void loop() {
 
   estadoActual = validateSensorsStatus();
 
-  setLedsStatus(estadoActual);
-  displayLevelStatus(estadoActual);
+  if(estadoActual != estadoAnterior){ //Sólo cambia los mensajes en LCD cuando el estado ha cambiado, evita parpadeo
+    setLedsStatus(estadoActual);
+    displayLevelStatus(estadoActual);
+    
+    if((estadoAnterior != estadoValidando) && (estadoActual != estadoLleno) && (estadoActual != estadoErrorFunction)){
+      //la alarma no se emite en estados lleno y error, porque estos estados emiten su propia alarma
+      alarmChangedLevel();
+    }
+
+    if((estadoActual != estadoLleno) && (estadoActual != estadoErrorFunction)){
+      delay(10000); //Evita que se disparen múltiples alarmas hasta que el sensor estabilice su estado
+    }
+  }
 
   if(estadoActual == estadoLleno){   //estadoLleno
     alarmFull();
@@ -301,6 +342,8 @@ void loop() {
   else if(estadoActual == estadoErrorFunction){
     alarmErrorFunction();
   }
+
+  estadoAnterior = estadoActual;
 
   delay(500);
 } 
